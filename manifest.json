@@ -1,0 +1,10 @@
+{
+  "name": "Antaral - Complete Your Thoughts",
+  "short_name": "Antaral",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#4f46e5",
+  "description": "AI that completes fragmented thoughts into poetry",
+  "icons": [{"src": "https://placehold.co/144x144/4f46e5/white?text=𖦹", "sizes": "144x144", "type": "image/png"}]
+}
