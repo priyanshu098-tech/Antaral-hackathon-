@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Antaral – Complete Your Thoughts</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(145deg, #0b1120 0%, #19233c 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(12px);
+            border-radius: 48px;
+            padding: 24px 20px 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #E8EFFF, #A0C0FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-align: center;
+        }
+        .sub { text-align: center; color: #9aa9c4; margin-bottom: 32px; font-size: 0.9rem; }
+        .card {
+            background: #0f172ad9;
+            border-radius: 36px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #2d3a5e;
+        }
+        textarea {
+            width: 100%;
+            background: #010314;
+            border: 1px solid #2a3b60;
+            border-radius: 28px;
+            padding: 16px 20px;
+            color: white;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #1e2b48;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: white;
+            flex: 1;
+            cursor: pointer;
+        }
+        button.primary { background: #4f46e5; box-shadow: 0 4px 12px rgba(79,70,229,0.4); }
+        .output-card {
+            background: #010a1a;
+            border-radius: 32px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #818cf8;
+        }
+        .output-title { color: #9bb4ff; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 12px; }
+        #resultText { color: #f0f3ff; font-size: 1.2rem; line-height: 1.5; font-style: italic; }
+        .loader { display: none; text-align: center; margin: 20px 0; color: #b9c8ff; }
+        .saved-section { margin-top: 20px; border-top: 1px solid #25345c; padding-top: 20px; }
+        .saved-item {
+            background: #0d1428;
+            border-radius: 24px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .small-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0 8px; }
+        footer { text-align: center; font-size: 0.7rem; color: #5c6e91; margin-top: 24px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>𖦹 Antaral</h1>
+    <div class="sub">complete your fragments · into meaning</div>
+
+    <div class="card">
+        <div class="output-title">✧ your half-thought</div>
+        <textarea id="fragmentInput" rows="3" placeholder="e.g., 'sea... mother... leaving...' or just a feeling..."></textarea>
+        <div class="button-group">
+            <button id="micBtn">🎤 Speak</button>
+            <button id="submitBtn" class="primary">✨ Complete thought</button>
+        </div>
+    </div>
+
+    <div class="loader" id="loader">🌀 weaving the unseen ...</div>
+
+    <div class="output-card" id="outputCard" style="display: none;">
+        <div class="output-title">✧ completed</div>
+        <div id="resultText"></div>
+        <div class="button-group" style="margin-top: 16px;">
+            <button id="saveBtn" class="secondary">💾 Save</button>
+            <button id="shareBtn" class="secondary">📤 Share</button>
+        </div>
+    </div>
+
+    <div class="saved-section">
+        <div class="output-title">𖦹 saved echoes</div>
+        <div id="savedList"></div>
+    </div>
+    <footer>antaral · the space between words</footer>
+</div>
+
+<script>
+    // ======================= YOUR API KEY (FOUND) =======================
+    const SARVAM_API_KEY = "sk_bg6b4qfv_LXf7aH8AOmdVPcpH6fbPES6G";
+    // Correct endpoint (confirmed by Sarvam docs – change if needed)
+    const SARVAM_API_URL = "https://api.sarvam.ai/v1/chat/completions";
+    
+    // Optional: if you face CORS errors, uncomment the next line and use PROXY + URL
+    // const PROXY = "https://cors-anywhere.herokuapp.com/";
+    // const SARVAM_API_URL = PROXY + "https://api.sarvam.ai/v1/chat/completions";
+
+    const SYSTEM_PROMPT = `You are Antaral, a poetic empath. The user provides fragmented thoughts, words, or feelings. Your task: expand them into a single, meaningful, original poetic sentence (max 30 words). Do NOT ask questions, do NOT give advice, do NOT add emojis. Just complete the thought beautifully. Language: Hinglish or English, matching the user's vibe. Output ONLY the completed sentence.`;
+
+    // DOM elements
+    const fragmentInput = document.getElementById('fragmentInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const micBtn = document.getElementById('micBtn');
+    const loader = document.getElementById('loader');
+    const outputCard = document.getElementById('outputCard');
+    const resultText = document.getElementById('resultText');
+    const saveBtn = document.getElementById('saveBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const savedListDiv = document.getElementById('savedList');
+
+    // Speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'hi-IN';
+        recognition.interimResults = false;
+        recognition.onresult = (event) => {
+            fragmentInput.value = event.results[0][0].transcript;
+        };
+        micBtn.onclick = () => recognition.start();
+    } else {
+        micBtn.disabled = true;
+        micBtn.innerText = "🎤 Not supported";
+    }
+
+    // Call Sarvam API
+    async function completeThought(fragment) {
+        if (!fragment.trim()) {
+            alert("Please enter or speak a thought fragment.");
+            return null;
+        }
+        loader.style.display = 'block';
+        outputCard.style.display = 'none';
+
+        try {
+            const response = await fetch(SARVAM_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SARVAM_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'sarvam-1',   // verify correct model name from Sarvam docs
+                    messages: [
+                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'user', content: fragment }
+                    ],
+                    temperature: 0.85,
+                    max_tokens: 100
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API error ${response.status}: ${errText}`);
+            }
+
+            const data = await response.json();
+            let completion = data.choices?.[0]?.message?.content || data.response || data.completion;
+            if (!completion) throw new Error("Unexpected API response");
+            return completion.trim();
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message + "\nCheck internet or API key. If CORS error, use proxy (see code comments).");
+            return null;
+        } finally {
+            loader.style.display = 'none';
+        }
+    }
+
+    function displayResult(completedText) {
+        resultText.innerText = completedText;
+        outputCard.style.display = 'block';
+        window.lastCompletion = completedText;
+        window.lastFragment = fragmentInput.value;
+    }
+
+    submitBtn.onclick = async () => {
+        const completed = await completeThought(fragmentInput.value);
+        if (completed) displayResult(completed);
+    };
+
+    function saveThought(fragment, completion) {
+        let saved = JSON.parse(localStorage.getItem('antaral_saved') || '[]');
+        saved.unshift({ fragment, completion, timestamp: Date.now() });
+        if (saved.length > 30) saved.pop();
+        localStorage.setItem('antaral_saved', JSON.stringify(saved));
+        renderSaved();
+    }
+
+    saveBtn.onclick = () => {
+        if (window.lastCompletion && window.lastFragment) {
+            saveThought(window.lastFragment, window.lastCompletion);
+            alert("Thought saved to echoes.");
+        } else {
+            alert("Generate a thought first.");
+        }
+    };
+
+    shareBtn.onclick = () => {
+        if (!window.lastCompletion) return alert("Nothing to share.");
+        const shareText = `𖦹 Antaral completed my thought:\n\n"${window.lastCompletion}"\n\n— from: "${window.lastFragment}"`;
+        if (navigator.share) navigator.share({ title: 'Antaral', text: shareText });
+        else navigator.clipboard.writeText(shareText) && alert("Copied to clipboard.");
+    };
+
+    function renderSaved() {
+        const saved = JSON.parse(localStorage.getItem('antaral_saved') || '[]');
+        if (saved.length === 0) {
+            savedListDiv.innerHTML = '<div style="color:#6f7c9b; text-align:center;">✨ no saved echoes yet</div>';
+            return;
+        }
+        let html = '';
+        saved.forEach((item, idx) => {
+            html += `
+                <div class="saved-item">
+                    <div style="flex:1; font-size:0.85rem;">
+                        <div style="color:#b9d0ff;">“${item.completion.substring(0, 80)}${item.completion.length>80?'…':''}”</div>
+                        <div style="font-size:0.7rem; color:#6f7c9b;">${new Date(item.timestamp).toLocaleString()}</div>
+                    </div>
+                    <button class="small-btn" data-idx="${idx}" data-action="copy">📋</button>
+                </div>
+            `;
+        });
+        savedListDiv.innerHTML = html;
+        document.querySelectorAll('.small-btn').forEach(btn => {
+            btn.onclick = () => {
+                const idx = btn.getAttribute('data-idx');
+                const savedArr = JSON.parse(localStorage.getItem('antaral_saved') || '[]');
+                if (savedArr[idx]) navigator.clipboard.writeText(savedArr[idx].completion) && alert("Copied completion.");
+            };
+        });
+    }
+
+    renderSaved();
+
+    // Register service worker for PWA (optional)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(console.log);
+    }
+</script>
+</body>
+          </html>
